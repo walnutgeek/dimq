@@ -89,6 +89,7 @@ class Orchestrator:
                     await self._handle_client_msg(client_sock, identity, msg)
 
                 await self._dispatch_tasks(worker_sock)
+                await self._send_idle_updates(worker_sock)
         finally:
             heartbeat_check_task.cancel()
             adaptive_task.cancel()
@@ -199,14 +200,16 @@ class Orchestrator:
                 ])
 
     async def _handle_task_result(
-        self, task_id: str, status_str: str, payload: str
+        self, task_id: str, status_str: str, payload: str,
+        dead_worker: WorkerState | None = None,
     ) -> None:
         record = self.tasks.get(task_id)
         if not record:
             return
 
         # Find which worker had this task and update
-        for w in self.workers.values():
+        search_workers = [dead_worker] if dead_worker else list(self.workers.values())
+        for w in search_workers:
             if task_id in w.active_tasks:
                 w.active_tasks.discard(task_id)
                 if w.adaptive:
@@ -216,6 +219,8 @@ class Orchestrator:
                     if attempt.worker_id == w.worker_id and attempt.ended_at is None:
                         attempt.ended_at = datetime.now()
                         attempt.status = TaskStatus(status_str)
+                        if status_str != "COMPLETED":
+                            attempt.error = payload or f"Task {status_str}"
                         break
                 break
 
@@ -246,6 +251,8 @@ class Orchestrator:
         for worker in self.workers.values():
             if not self.task_queue:
                 break
+            if worker.free_slots <= 0:
+                continue
             while worker.free_slots > 0 and self.task_queue:
                 task_id = self.task_queue.popleft()
                 record = self.tasks[task_id]
@@ -286,11 +293,13 @@ class Orchestrator:
 
             for wid in dead_workers:
                 ws = self.workers.pop(wid)
-                # Re-queue all in-flight tasks
-                for task_id in ws.active_tasks:
+                # Re-queue all in-flight tasks (pass dead_worker so attempts are closed)
+                for task_id in list(ws.active_tasks):
                     record = self.tasks.get(task_id)
                     if record and record.status == TaskStatus.RUNNING:
-                        await self._handle_task_result(task_id, "TIMEOUT", "")
+                        await self._handle_task_result(
+                            task_id, "TIMEOUT", "", dead_worker=ws
+                        )
                 logger.warning(
                     "worker.dead", worker_id=wid, requeued=len(ws.active_tasks)
                 )
@@ -300,5 +309,19 @@ class Orchestrator:
             await asyncio.sleep(self.config.adaptive_window_seconds)
             for ws in self.workers.values():
                 if ws.adaptive:
+                    old_factor = ws.parallelization_factor
                     ws.adaptive.evaluate()
                     ws.parallelization_factor = ws.adaptive.factor
+                    if ws.parallelization_factor != old_factor:
+                        ws.factor_changed = True
+
+    async def _send_idle_updates(self, worker_sock: zmq.asyncio.Socket) -> None:
+        """Send IDLE messages to workers whose parallelization factor changed."""
+        for worker in self.workers.values():
+            if getattr(worker, "factor_changed", False):
+                await worker_sock.send_multipart([
+                    worker.worker_id.encode(),
+                    b"IDLE",
+                    str(worker.parallelization_factor).encode(),
+                ])
+                worker.factor_changed = False
