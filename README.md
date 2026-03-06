@@ -26,7 +26,7 @@ A general-purpose distributed task processing framework built on ZeroMQ. Workers
 
 ## Prerequisites
 
-- Python 3.12+
+- Python 3.9+
 - [uv](https://docs.astral.sh/uv/)
 - Rust toolchain (for the LoadTask extension only)
 

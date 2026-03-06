@@ -3,7 +3,7 @@ from __future__ import annotations
 import importlib
 import inspect
 from dataclasses import dataclass
-from typing import Any, Callable, get_type_hints
+from typing import Any, Callable, Type, get_type_hints
 
 from pydantic import BaseModel
 
@@ -11,8 +11,8 @@ from pydantic import BaseModel
 @dataclass
 class TaskFunc:
     func: Callable
-    input_model: type[BaseModel]
-    output_model: type[BaseModel]
+    input_model: Type[BaseModel]
+    output_model: Type[BaseModel]
     is_async: bool
 
 

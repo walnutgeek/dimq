@@ -6,6 +6,7 @@ import time
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Dict, List, Optional, Set
 
 import structlog
 import zmq
@@ -27,9 +28,9 @@ class WorkerState:
     worker_id: str
     cpu_count: int
     parallelization_factor: int
-    active_tasks: set[str] = field(default_factory=set)
+    active_tasks: Set[str] = field(default_factory=set)
     last_heartbeat: float = field(default_factory=time.monotonic)
-    adaptive: AdaptiveController | None = None
+    adaptive: Optional[AdaptiveController] = None
 
     @property
     def free_slots(self) -> int:

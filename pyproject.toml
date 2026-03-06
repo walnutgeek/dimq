@@ -2,7 +2,7 @@
 name = "dimq"
 version = "0.1.0"
 description = "Distributed In-Memory Queue"
-requires-python = ">=3.12"
+requires-python = ">=3.9"
 dependencies = [
     "pyzmq>=26.0",
     "pydantic>=2.0",

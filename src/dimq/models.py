@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
+from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -20,9 +21,9 @@ class TaskAttempt(BaseModel):
     attempt_number: int
     worker_id: str
     started_at: datetime
-    ended_at: datetime | None = None
+    ended_at: Optional[datetime] = None
     status: TaskStatus = TaskStatus.RUNNING
-    error: str | None = None
+    error: Optional[str] = None
 
 
 class TaskRecord(BaseModel):
@@ -30,10 +31,10 @@ class TaskRecord(BaseModel):
     task_type: str
     payload: str  # JSON string
     status: TaskStatus = TaskStatus.PENDING
-    attempts: list[TaskAttempt] = Field(default_factory=list)
+    attempts: List[TaskAttempt] = Field(default_factory=list)
     retry_count: int = 0
     created_at: datetime = Field(default_factory=datetime.now)
-    result_payload: str | None = None
+    result_payload: Optional[str] = None
 
 
 class TaskConfig(BaseModel):
@@ -49,4 +50,4 @@ class DimqConfig(BaseModel):
     heartbeat_timeout_missed: int = 3
     adaptive_window_seconds: float = 30.0
     adaptive_reprobe_seconds: float = 300.0
-    tasks: list[TaskConfig] = Field(default_factory=list)
+    tasks: List[TaskConfig] = Field(default_factory=list)

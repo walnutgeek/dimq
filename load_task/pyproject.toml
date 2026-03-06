@@ -5,7 +5,7 @@ build-backend = "maturin"
 [project]
 name = "load_task"
 version = "0.1.0"
-requires-python = ">=3.12"
+requires-python = ">=3.9"
 
 [tool.maturin]
 features = ["pyo3/extension-module"]
