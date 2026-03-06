@@ -101,7 +101,7 @@ reply = sock.recv_multipart()
 ## Testing
 
 ```bash
-# Run all tests
+# Run all tests (excludes e2e by default if Docker unavailable)
 uv run pytest -v
 
 # Run specific test modules
@@ -110,6 +110,10 @@ uv run pytest tests/test_integration.py -v
 
 # Run LoadTask tests (requires Rust extension to be built)
 uv run pytest tests/test_load_task.py -v
+
+# Run end-to-end Docker test (requires Docker daemon)
+# Spins up 3 worker containers, submits load tasks, verifies adaptive tuning
+uv run pytest tests/test_e2e_docker.py -v -s
 ```
 
 ## Writing Custom Tasks
@@ -190,26 +194,34 @@ result = dimq_load_task.run(
 ```
 DIMQ/
 ├── pyproject.toml
+├── Dockerfile              # Multi-stage build for worker containers
+├── docker-compose.yml      # 3 worker services for e2e testing
 ├── src/dimq/
-│   ├── orchestrator.py    # ZMQ ROUTER, dispatch, heartbeat, retry
-│   ├── worker.py          # ZMQ DEALER, task execution, timeout
-│   ├── adaptive.py        # Throughput-based parallelization tuning
-│   ├── task.py            # Task loading and introspection via inspect
-│   ├── models.py          # Pydantic models (TaskRecord, DimqConfig, etc.)
-│   ├── config.py          # YAML config loading
-│   └── cli.py             # CLI entry points
-├── dimq_load_task/        # Rust extension (pyo3 + maturin)
+│   ├── orchestrator.py     # ZMQ ROUTER, dispatch, heartbeat, retry
+│   ├── worker.py           # ZMQ DEALER, task execution, timeout
+│   ├── adaptive.py         # Throughput-based parallelization tuning
+│   ├── task.py             # Task loading and introspection via inspect
+│   ├── models.py           # Pydantic models (TaskRecord, DimqConfig, etc.)
+│   ├── config.py           # YAML config loading
+│   ├── cli.py              # CLI entry points
+│   └── tasks/
+│       └── load.py         # Pydantic wrapper for dimq_load_task
+├── dimq_load_task/         # Rust extension (pyo3 + maturin)
 │   ├── Cargo.toml
 │   ├── pyproject.toml
 │   └── src/lib.rs
+├── e2e/
+│   └── config.yaml         # Worker config for Docker containers
 └── tests/
     ├── test_orchestrator.py
     ├── test_worker.py
     ├── test_adaptive.py
     ├── test_integration.py
+    ├── test_e2e_docker.py   # Docker-based e2e test
     ├── test_load_task.py
+    ├── test_tasks_load.py   # LoadTask wrapper tests
     ├── test_models.py
     ├── test_config.py
     ├── test_task.py
-    └── sample_tasks.py    # Test fixtures
+    └── sample_tasks.py      # Test fixtures
 ```
