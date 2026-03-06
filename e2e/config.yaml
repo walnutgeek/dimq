@@ -1,0 +1,7 @@
+endpoint: "tcp://placeholder:5555"
+heartbeat_interval_seconds: 1
+heartbeat_timeout_missed: 3
+tasks:
+  - name: "dimq.tasks.load:run_load"
+    max_retries: 1
+    timeout_seconds: 30
