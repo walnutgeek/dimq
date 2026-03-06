@@ -4,7 +4,6 @@ import asyncio
 import json
 import subprocess
 import time
-import uuid
 
 import pytest
 
@@ -68,12 +67,12 @@ def docker_workers():
         ["docker", "compose", "up", "-d", "--build"],
         check=True,
         capture_output=True,
+        timeout=300,
     )
     yield
     subprocess.run(
-        ["docker", "compose", "down"],
-        check=True,
-        capture_output=True,
+        ["docker", "compose", "down", "--remove-orphans"],
+        timeout=60,
     )
 
 
