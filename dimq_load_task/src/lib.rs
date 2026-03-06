@@ -98,7 +98,7 @@ fn run(
 }
 
 #[pymodule]
-fn load_task(m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn dimq_load_task(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(run, m)?)?;
     Ok(())
 }

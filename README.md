@@ -37,7 +37,7 @@ A general-purpose distributed task processing framework built on ZeroMQ. Workers
 uv sync
 
 # (Optional) Build the Rust LoadTask extension
-cd load_task
+cd dimq_load_task
 uv tool run maturin develop --uv
 cd ..
 ```
@@ -165,9 +165,9 @@ Sync tasks run in a thread pool. Async tasks run natively in the event loop. If 
 A built-in stress-testing task implemented in Rust (pyo3). It creates configurable CPU, I/O, and memory pressure while releasing the GIL so Python threading works efficiently.
 
 ```python
-import load_task
+import dimq_load_task
 
-result = load_task.run(
+result = dimq_load_task.run(
     duration_seconds=5.0,
     concurrency=4,       # number of CPU threads
     cpu_load=0.7,        # fraction of duration for CPU work (SHA-256 hashing)
@@ -198,7 +198,7 @@ DIMQ/
 │   ├── models.py          # Pydantic models (TaskRecord, DimqConfig, etc.)
 │   ├── config.py          # YAML config loading
 │   └── cli.py             # CLI entry points
-├── load_task/             # Rust extension (pyo3 + maturin)
+├── dimq_load_task/        # Rust extension (pyo3 + maturin)
 │   ├── Cargo.toml
 │   ├── pyproject.toml
 │   └── src/lib.rs

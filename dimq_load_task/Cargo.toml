@@ -1,10 +1,10 @@
 [package]
-name = "load_task"
+name = "dimq_load_task"
 version = "0.1.0"
 edition = "2021"
 
 [lib]
-name = "load_task"
+name = "dimq_load_task"
 crate-type = ["cdylib"]
 
 [dependencies]

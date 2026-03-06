@@ -15,8 +15,8 @@ build/
 .pytest_cache/
 
 # Rust
-load_task/target/
-load_task/Cargo.lock
+dimq_load_task/target/
+dimq_load_task/Cargo.lock
 
 # IDE
 .idea/
