@@ -9,12 +9,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 ENV PATH="/root/.cargo/bin:${PATH}"
 
 # Install uv
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.6.6 /uv /usr/local/bin/uv
 
 WORKDIR /build
 
 # Copy project files
-COPY pyproject.toml .python-version ./
+COPY pyproject.toml .python-version uv.lock ./
 COPY src/ src/
 COPY dimq_load_task/ dimq_load_task/
 

@@ -1,0 +1,11 @@
+.venv/
+.git/
+dimq_load_task/target/
+__pycache__/
+*.pyc
+*.so
+*.dylib
+.pytest_cache/
+docs/
+tests/
+*.egg-info/
