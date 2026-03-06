@@ -1,0 +1,16 @@
+services:
+  worker-1:
+    build: .
+    command: ["worker", "--config", "/app/config.yaml", "--endpoint", "tcp://host.docker.internal:5555"]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+  worker-2:
+    build: .
+    command: ["worker", "--config", "/app/config.yaml", "--endpoint", "tcp://host.docker.internal:5555"]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+  worker-3:
+    build: .
+    command: ["worker", "--config", "/app/config.yaml", "--endpoint", "tcp://host.docker.internal:5555"]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
