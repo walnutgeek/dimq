@@ -11,7 +11,7 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:0.6.6 /uv /usr/local/bin/uv
 
-WORKDIR /build
+WORKDIR /app
 
 # Copy project files
 COPY pyproject.toml .python-version uv.lock ./
@@ -30,8 +30,8 @@ FROM python:3.9-slim
 
 WORKDIR /app
 
-# Copy the entire venv from builder
-COPY --from=builder /build/.venv /app/.venv
+# Copy the venv from builder (same /app path so shebangs are correct)
+COPY --from=builder /app/.venv /app/.venv
 
 # Copy source and config
 COPY src/ /app/src/
