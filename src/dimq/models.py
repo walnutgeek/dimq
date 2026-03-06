@@ -45,7 +45,7 @@ class TaskConfig(BaseModel):
 
 class DimqConfig(BaseModel):
     endpoint: str = "tcp://0.0.0.0:5555"
-    client_endpoint: str = "tcp://0.0.0.0:5556"
+    client_endpoint: Optional[str] = "tcp://0.0.0.0:5556"
     heartbeat_interval_seconds: int = 5
     heartbeat_timeout_missed: int = 3
     adaptive_window_seconds: float = 30.0

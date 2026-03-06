@@ -6,7 +6,7 @@ import time
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Tuple
 
 import structlog
 import zmq
@@ -50,6 +50,49 @@ class Orchestrator:
     def shutdown(self) -> None:
         self._running = False
 
+    # ------------------------------------------------------------------
+    # Public API — usable directly when embedding the orchestrator
+    # ------------------------------------------------------------------
+
+    def submit_task(self, task_type: str, task_id: str, payload: str) -> TaskRecord:
+        """Submit a task for processing. Returns the created TaskRecord."""
+        record = TaskRecord(
+            task_id=task_id,
+            task_type=task_type,
+            payload=payload,
+        )
+        self.tasks[task_id] = record
+        self.task_queue.append(task_id)
+        logger.info("task.submitted", task_id=task_id, task_type=task_type)
+        return record
+
+    def get_status(self, task_id: str) -> Optional[Tuple[TaskStatus, list]]:
+        """Get task status and attempt history. Returns None if not found."""
+        record = self.tasks.get(task_id)
+        if not record:
+            return None
+        return record.status, [a.model_dump(mode="json") for a in record.attempts]
+
+    def get_result(self, task_id: str) -> Optional[Tuple[TaskStatus, str]]:
+        """Get task result. Returns (status, payload) or None if not found."""
+        record = self.tasks.get(task_id)
+        if not record:
+            return None
+        return record.status, record.result_payload or ""
+
+    def drain_finished(self) -> List[TaskRecord]:
+        """Remove and return all finished tasks (COMPLETED or FAILED)."""
+        finished = []
+        for task_id in list(self.tasks):
+            record = self.tasks[task_id]
+            if record.status in (TaskStatus.COMPLETED, TaskStatus.FAILED):
+                finished.append(self.tasks.pop(task_id))
+        return finished
+
+    # ------------------------------------------------------------------
+    # ZMQ event loop
+    # ------------------------------------------------------------------
+
     async def run(self) -> None:
         self._running = True
         self._ctx = zmq.asyncio.Context()
@@ -57,8 +100,10 @@ class Orchestrator:
         worker_sock = self._ctx.socket(zmq.ROUTER)
         worker_sock.bind(self.config.endpoint)
 
-        client_sock = self._ctx.socket(zmq.ROUTER)
-        client_sock.bind(self.config.client_endpoint)
+        client_sock = None
+        if self.config.client_endpoint:
+            client_sock = self._ctx.socket(zmq.ROUTER)
+            client_sock.bind(self.config.client_endpoint)
 
         logger.info(
             "orchestrator.started",
@@ -68,7 +113,8 @@ class Orchestrator:
 
         poller = zmq.asyncio.Poller()
         poller.register(worker_sock, zmq.POLLIN)
-        poller.register(client_sock, zmq.POLLIN)
+        if client_sock:
+            poller.register(client_sock, zmq.POLLIN)
 
         heartbeat_check_task = asyncio.create_task(self._heartbeat_checker())
         adaptive_task = asyncio.create_task(self._adaptive_evaluator())
@@ -83,7 +129,7 @@ class Orchestrator:
                     msg = frames[1:]
                     await self._handle_worker_msg(worker_sock, identity, msg)
 
-                if client_sock in events:
+                if client_sock and client_sock in events:
                     frames = await client_sock.recv_multipart()
                     identity = frames[0]
                     msg = frames[1:]
@@ -95,8 +141,13 @@ class Orchestrator:
             heartbeat_check_task.cancel()
             adaptive_task.cancel()
             worker_sock.close()
-            client_sock.close()
+            if client_sock:
+                client_sock.close()
             self._ctx.term()
+
+    # ------------------------------------------------------------------
+    # ZMQ message handlers (delegate to public API)
+    # ------------------------------------------------------------------
 
     async def _handle_worker_msg(
         self, sock: zmq.asyncio.Socket, identity: bytes, msg: list[bytes]
@@ -127,7 +178,7 @@ class Orchestrator:
             task_id = msg[1].decode()
             status_str = msg[2].decode()
             payload = msg[3].decode()
-            await self._handle_task_result(task_id, status_str, payload)
+            self._record_task_result(task_id, status_str, payload)
 
     async def _handle_client_msg(
         self, sock: zmq.asyncio.Socket, identity: bytes, msg: list[bytes]
@@ -138,69 +189,56 @@ class Orchestrator:
             task_type = msg[1].decode()
             task_id = msg[2].decode()
             payload = msg[3].decode()
-
-            record = TaskRecord(
-                task_id=task_id,
-                task_type=task_type,
-                payload=payload,
-            )
-            self.tasks[task_id] = record
-            self.task_queue.append(task_id)
-
+            self.submit_task(task_type, task_id, payload)
             await sock.send_multipart([identity, b"ACK", task_id.encode()])
-            logger.info("task.submitted", task_id=task_id, task_type=task_type)
 
         elif cmd == "STATUS":
             task_id = msg[1].decode()
-            record = self.tasks.get(task_id)
-            if record:
+            result = self.get_status(task_id)
+            if result:
+                status, attempts = result
                 await sock.send_multipart([
                     identity,
                     b"STATUS_REPLY",
                     task_id.encode(),
-                    record.status.value.encode(),
-                    json.dumps(
-                        [a.model_dump(mode="json") for a in record.attempts]
-                    ).encode(),
+                    status.value.encode(),
+                    json.dumps(attempts).encode(),
                 ])
             else:
                 await sock.send_multipart([
-                    identity,
-                    b"STATUS_REPLY",
-                    task_id.encode(),
-                    b"NOT_FOUND",
-                    b"[]",
+                    identity, b"STATUS_REPLY", task_id.encode(),
+                    b"NOT_FOUND", b"[]",
                 ])
 
         elif cmd == "RESULT":
             task_id = msg[1].decode()
-            record = self.tasks.get(task_id)
-            if record and record.status == TaskStatus.COMPLETED:
+            result = self.get_result(task_id)
+            if result:
+                status, payload = result
                 await sock.send_multipart([
-                    identity,
-                    b"RESULT_REPLY",
-                    task_id.encode(),
-                    b"COMPLETED",
-                    (record.result_payload or "").encode(),
-                ])
-            elif record:
-                await sock.send_multipart([
-                    identity,
-                    b"RESULT_REPLY",
-                    task_id.encode(),
-                    record.status.value.encode(),
-                    b"",
+                    identity, b"RESULT_REPLY", task_id.encode(),
+                    status.value.encode(), payload.encode(),
                 ])
             else:
                 await sock.send_multipart([
-                    identity,
-                    b"RESULT_REPLY",
-                    task_id.encode(),
-                    b"NOT_FOUND",
-                    b"",
+                    identity, b"RESULT_REPLY", task_id.encode(),
+                    b"NOT_FOUND", b"",
                 ])
 
-    async def _handle_task_result(
+        elif cmd == "DRAIN":
+            finished = self.drain_finished()
+            records_json = json.dumps(
+                [r.model_dump(mode="json") for r in finished]
+            )
+            await sock.send_multipart([
+                identity, b"DRAIN_REPLY", records_json.encode(),
+            ])
+
+    # ------------------------------------------------------------------
+    # Internal task result processing
+    # ------------------------------------------------------------------
+
+    def _record_task_result(
         self, task_id: str, status_str: str, payload: str,
         dead_worker: WorkerState | None = None,
     ) -> None:
@@ -244,6 +282,10 @@ class Orchestrator:
             else:
                 record.status = TaskStatus.FAILED
                 logger.info("task.failed", task_id=task_id, retries_exhausted=True)
+
+    # ------------------------------------------------------------------
+    # Task dispatch and background tasks
+    # ------------------------------------------------------------------
 
     async def _dispatch_tasks(self, worker_sock: zmq.asyncio.Socket) -> None:
         if not self.task_queue:
@@ -298,7 +340,7 @@ class Orchestrator:
                 for task_id in list(ws.active_tasks):
                     record = self.tasks.get(task_id)
                     if record and record.status == TaskStatus.RUNNING:
-                        await self._handle_task_result(
+                        self._record_task_result(
                             task_id, "TIMEOUT", "", dead_worker=ws
                         )
                 logger.warning(
