@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "dimq-load-task"
-version = "0.0.1"
+version = "0.0.0"
 description = "Rust-powered load generation task for DIMQ"
 readme = "../README.md"
 license = "MIT"
