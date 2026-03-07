@@ -6,7 +6,7 @@ build-backend = "maturin"
 name = "dimq-load-task"
 version = "0.0.0"
 description = "Rust-powered load generation task for DIMQ"
-readme = "../README.md"
+readme = "README.md"
 license = "MIT"
 requires-python = ">=3.9"
 authors = [{ name = "Walnut Geek", email = "wg@walnutgeek.com" }]
