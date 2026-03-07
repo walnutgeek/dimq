@@ -1,14 +1,26 @@
 [project]
 name = "dimq"
-version = "0.1.0"
+version = "0.0.1"
 description = "Distributed In-Memory Queue"
+readme = "README.md"
+license = "MIT"
 requires-python = ">=3.9"
+authors = [{ name = "Walnut Geek", email = "wg@walnutgeek.com" }]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+]
 dependencies = [
     "pyzmq>=26.0",
     "pydantic>=2.0",
     "pyyaml>=6.0",
     "structlog>=24.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/walnutgeek/dimq"
+Repository = "https://github.com/walnutgeek/dimq"
 
 [project.scripts]
 dimq = "dimq.cli:main"
