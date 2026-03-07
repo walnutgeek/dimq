@@ -1,0 +1,135 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: actions/cache@v4
+        with:
+          path: dimq_load_task/target/
+          key: rust-${{ runner.os }}-${{ hashFiles('dimq_load_task/Cargo.lock') }}
+
+      - run: uv sync
+      - run: uv tool run maturin develop --manifest-path dimq_load_task/Cargo.toml --uv
+      - run: uv run pytest -v -m "not e2e"
+
+  build-python:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - run: uv build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-python
+          path: dist/*
+
+  build-rust-wheels:
+    needs: test
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+          - os: macos-13
+            target: x86_64-apple-darwin
+          - os: macos-14
+            target: aarch64-apple-darwin
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        uses: docker/setup-qemu-action@v3
+
+      - uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          args: --release --out dist --interpreter python3.9
+          manylinux: auto
+          working-directory: dimq_load_task
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-rust-${{ matrix.target }}
+          path: dimq_load_task/dist/*
+
+  build-rust-sdist:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: PyO3/maturin-action@v1
+        with:
+          command: sdist
+          args: --out dist
+          working-directory: dimq_load_task
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-rust-sdist
+          path: dimq_load_task/dist/*
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build-python, build-rust-wheels, build-rust-sdist]
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    environment: pypi
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: dist-python
+          merge-multiple: true
+          path: dist-python/
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: dist-rust-*
+          merge-multiple: true
+          path: dist-rust/
+
+      - name: Publish dimq to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist-python/
+
+      - name: Publish dimq-load-task to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist-rust/

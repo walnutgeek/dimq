@@ -8,7 +8,7 @@ name = "dimq_load_task"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.22", features = ["extension-module"] }
+pyo3 = { version = "0.22", features = ["extension-module", "abi3-py39"] }
 rayon = "1.10"
 sha2 = "0.10"
 tempfile = "3"
