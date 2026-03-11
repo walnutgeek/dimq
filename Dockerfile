@@ -14,9 +14,12 @@ COPY --from=ghcr.io/astral-sh/uv:0.6.6 /uv /usr/local/bin/uv
 WORKDIR /app
 
 # Copy project files
-COPY pyproject.toml .python-version uv.lock ./
+COPY pyproject.toml .python-version uv.lock README.md ./
 COPY src/ src/
 COPY dimq_load_task/ dimq_load_task/
+
+# Fallback version when .git is not available (hatch-vcs needs git history)
+ENV SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0
 
 # Create venv and install project
 RUN uv sync --no-dev
