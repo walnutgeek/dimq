@@ -252,7 +252,12 @@ class Orchestrator:
             if task_id in w.active_tasks:
                 w.active_tasks.discard(task_id)
                 if w.adaptive:
-                    w.adaptive.record_completion()
+                    if status_str == "TIMEOUT":
+                        w.adaptive.record_timeout()
+                        w.parallelization_factor = w.adaptive.factor
+                        w.factor_changed = True
+                    else:
+                        w.adaptive.record_completion()
                 # Update attempt
                 for attempt in reversed(record.attempts):
                     if attempt.worker_id == w.worker_id and attempt.ended_at is None:

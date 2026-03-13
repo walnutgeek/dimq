@@ -23,6 +23,10 @@ class AdaptiveController:
     def record_completion(self) -> None:
         self._completions += 1
 
+    def record_timeout(self) -> None:
+        self.factor = max(1, self.factor // 2)
+        self._steady = False
+
     def evaluate(self) -> None:
         now = time.monotonic()
         elapsed = now - self._window_start

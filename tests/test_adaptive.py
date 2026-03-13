@@ -50,3 +50,20 @@ def test_minimum_factor_is_one():
     time.sleep(0.06)
     ctrl.evaluate()
     assert ctrl.factor >= 1
+
+
+def test_halve_on_timeout():
+    ctrl = AdaptiveController(cpu_count=8)
+    assert ctrl.factor == 8
+
+    ctrl.record_timeout()
+    assert ctrl.factor == 4
+
+    ctrl.record_timeout()
+    assert ctrl.factor == 2
+
+    ctrl.record_timeout()
+    assert ctrl.factor == 1
+
+    ctrl.record_timeout()
+    assert ctrl.factor == 1
