@@ -20,7 +20,7 @@ class Worker:
     def __init__(self, config: DimqConfig):
         self.config = config
         self.worker_id = f"worker-{uuid.uuid4().hex[:8]}"
-        self.cpu_count = max(os.cpu_count() // 3 , 1)
+        self.cpu_count = os.cpu_count()
         self._running = False
         self._parallelization_factor = self.cpu_count
         self._active_tasks: set[str] = set()
