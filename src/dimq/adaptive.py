@@ -10,13 +10,15 @@ class AdaptiveController:
         window_seconds: float = 30.0,
         reprobe_seconds: float = 300.0,
     ):
-        self.factor: int = cpu_count
+        self.cpu_count: int = cpu_count  # informational only
+        self.factor: int = 2
         self.window_seconds = window_seconds
         self.reprobe_seconds = reprobe_seconds
 
         self._completions: int = 0
         self._window_start: float = time.monotonic()
         self._prev_throughput: float = 0.0
+        self._doubling: bool = True
         self._steady: bool = False
         self._steady_since: float = 0.0
 
@@ -25,6 +27,7 @@ class AdaptiveController:
 
     def record_timeout(self) -> None:
         self.factor = max(1, self.factor // 2)
+        self._doubling = False
         self._steady = False
 
     def evaluate(self) -> None:
@@ -40,6 +43,14 @@ class AdaptiveController:
             if now - self._steady_since >= self.reprobe_seconds:
                 self.factor += 1
                 self._steady = False
+        elif self._doubling:
+            if throughput > self._prev_throughput:
+                self.factor *= 2
+            else:
+                self.factor = max(1, self.factor // 2)
+                self._doubling = False
+                self._steady = True
+                self._steady_since = now
         else:
             if throughput > self._prev_throughput:
                 self.factor += 1

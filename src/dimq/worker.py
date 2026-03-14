@@ -22,7 +22,7 @@ class Worker:
         self.worker_id = f"worker-{uuid.uuid4().hex[:8]}"
         self.cpu_count = os.cpu_count()
         self._running = False
-        self._parallelization_factor = self.cpu_count
+        self._parallelization_factor = 2
         self._active_tasks: set[str] = set()
         self._task_funcs: dict[str, TaskFunc] = {}
         self._executor = ThreadPoolExecutor(max_workers=self.cpu_count * 2)

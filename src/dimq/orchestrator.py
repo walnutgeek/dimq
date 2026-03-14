@@ -160,7 +160,7 @@ class Orchestrator:
             self.workers[worker_id] = WorkerState(
                 worker_id=worker_id,
                 cpu_count=cpu_count,
-                parallelization_factor=cpu_count,
+                parallelization_factor=2,
                 adaptive=AdaptiveController(
                     cpu_count=cpu_count,
                     window_seconds=self.config.adaptive_window_seconds,

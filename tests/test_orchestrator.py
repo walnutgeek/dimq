@@ -69,7 +69,8 @@ async def test_worker_registration(orchestrator, worker_socket):
     await sock.send_multipart([b"READY", worker_id.encode(), b"4"])
     await asyncio.sleep(0.1)
     assert worker_id in orchestrator.workers
-    assert orchestrator.workers[worker_id].parallelization_factor == 4
+    assert orchestrator.workers[worker_id].parallelization_factor == 2
+    assert orchestrator.workers[worker_id].cpu_count == 4
 
 
 @pytest.mark.timeout(5)
